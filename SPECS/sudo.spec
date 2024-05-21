@@ -13,7 +13,7 @@ Version: 1.9.15
 # use "-p -e % {?extraver}" when beta
 # use "-e % {?extraver}"" when patch version
 # use nothing special when normal version
-Release: %{?xsrel}%{?dist}
+Release: %{?xsrel}.1%{?dist}
 License: ISC
 URL: https://www.sudo.ws
 Source0: sudo-1.9.15p5.tar.gz
@@ -62,17 +62,6 @@ BuildRequires:  openssl-devel
 %{name}-logsrvd is a high-performance log server that accepts event and I/O logs from sudo.
 It can be used to implement centralized logging of sudo logs.
 
-%if "%{dist}" != ".xs8~2_1"
-%package        python-plugin
-Summary:        Python plugin for %{name}
-Requires:       %{name} = %{version}-%{release}
-BuildRequires:  python3-devel
-
-
-%description    python-plugin
-%{name}-python-plugin allows using sudo plugins written in Python.
-%endif
-
 %prep
 %autosetup -p1 -n %{name}-%{version}%{?extraver}
 
@@ -109,9 +98,6 @@ export CFLAGS="$RPM_OPT_FLAGS $F_PIE" LDFLAGS="-pie -Wl,-z,relro -Wl,-z,now"
         --with-selinux \
         --with-sendmail=/usr/sbin/sendmail \
         --with-passprompt="[sudo] password for %p: " \
-%if "%{dist}" != ".xs8~2_1"
-        --enable-python \
-%endif
         --enable-zlib=system \
         --with-linux-audit \
         --with-sssd
@@ -239,13 +225,11 @@ EOF
 %{_mandir}/man8/sudo_logsrvd.8.gz
 %{_mandir}/man8/sudo_sendlog.8.gz
 
-%if "%{dist}" != ".xs8~2_1"
-%files python-plugin
-%{_mandir}/man5/sudo_plugin_python.5.gz
-%attr(0644,root,root) %{_libexecdir}/sudo/python_plugin.so
-%endif
-
 %changelog
+* Tue May 21 2024 Gael Duperrey <gduperrey@vates.tech> - 1.9.15-2.1
+- Synced from XS82ECU1063
+- Removed xenserver-specific test of %dist to determine buildrequires
+
 * Wed Feb 28 2024 Frediano Ziglio <frediano.ziglio@cloud.com> - 1.9.15-2
 - Bump release
 
