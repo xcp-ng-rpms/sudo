@@ -228,7 +228,7 @@ EOF
 %changelog
 * Tue May 21 2024 Gael Duperrey <gduperrey@vates.tech> - 1.9.15-2.1
 - Synced from XS82ECU1063
-- Removed xenserver-specific test of %dist to determine buildrequires
+- Removed XS-specific test of dist macro to determine buildrequires
 
 * Wed Feb 28 2024 Frediano Ziglio <frediano.ziglio@cloud.com> - 1.9.15-2
 - Bump release
