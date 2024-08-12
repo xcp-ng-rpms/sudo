@@ -1,6 +1,6 @@
-%global package_speccommit 99b4e9772379e1d6c3e1f934d817ab5b9fad199f
+%global package_speccommit fd5156646ab541831d5e7d4b5681b7cab0980ea1
 %global usver 1.9.15
-%global xsver 3
+%global xsver 4
 %global xsrel %{xsver}%{?xscount}%{?xshash}
 
 # comment out if no extra version
@@ -63,15 +63,6 @@ BuildRequires:  openssl-devel
 %{name}-logsrvd is a high-performance log server that accepts event and I/O logs from sudo.
 It can be used to implement centralized logging of sudo logs.
 
-%package        python-plugin
-Summary:        Python plugin for %{name}
-Requires:       %{name} = %{version}-%{release}
-BuildRequires:  python3-devel
-
-
-%description    python-plugin
-%{name}-python-plugin allows using sudo plugins written in Python.
-
 %prep
 %autosetup -p1 -n %{name}-%{version}%{?extraver}
 
@@ -108,7 +99,7 @@ export CFLAGS="$RPM_OPT_FLAGS $F_PIE" LDFLAGS="-pie -Wl,-z,relro -Wl,-z,now"
         --with-selinux \
         --with-sendmail=/usr/sbin/sendmail \
         --with-passprompt="[sudo] password for %p: " \
-        --enable-python \
+        --disable-python \
         --enable-zlib=system \
         --with-linux-audit \
         --with-sssd
@@ -236,11 +227,14 @@ EOF
 %{_mandir}/man8/sudo_logsrvd.8.gz
 %{_mandir}/man8/sudo_sendlog.8.gz
 
-%files python-plugin
-%{_mandir}/man5/sudo_plugin_python.5.gz
-%attr(0644,root,root) %{_libexecdir}/sudo/python_plugin.so
 
 %changelog
+* Mon Aug 12 2024 Samuel Verschelde <stormi-xcp@ylix.fr> - 1.9.15-4.1
+- Sync with 1.9.15-4
+- *** Upstream changelog ***
+- * Thu Jul 4 2024 Lin Liu <Lin.Liu01@cloud.com> - 1.9.15-4
+-- - Drop python plugin as not required
+
 * Thu May 23 2024 Gael Duperrey <gduperrey@vates.tech> - 1.9.15-3.1
 - Synced from sudo-1.9.15-3.xs8.src.rpm
 - Removed XS-specific test of dist macro to determine buildrequires
