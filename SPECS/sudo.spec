@@ -1,6 +1,6 @@
-%global package_speccommit a084333d62adee9514dde8b914ec1409910bce5a
+%global package_speccommit fd5156646ab541831d5e7d4b5681b7cab0980ea1
 %global usver 1.9.15
-%global xsver 2
+%global xsver 4
 %global xsrel %{xsver}%{?xscount}%{?xshash}
 
 # comment out if no extra version
@@ -19,6 +19,7 @@ URL: https://www.sudo.ws
 Source0: sudo-1.9.15p5.tar.gz
 Source1: sudoers
 Requires: pam
+Requires: /usr/bin/vi
 
 BuildRequires: make
 BuildRequires: pam-devel
@@ -98,6 +99,7 @@ export CFLAGS="$RPM_OPT_FLAGS $F_PIE" LDFLAGS="-pie -Wl,-z,relro -Wl,-z,now"
         --with-selinux \
         --with-sendmail=/usr/sbin/sendmail \
         --with-passprompt="[sudo] password for %p: " \
+        --disable-python \
         --enable-zlib=system \
         --with-linux-audit \
         --with-sssd
@@ -226,6 +228,14 @@ EOF
 %{_mandir}/man8/sudo_sendlog.8.gz
 
 %changelog
+* Tue Nov 12 2024 Gael Duperrey <gduperrey@vates.tech> - 1.9.15-4.1
+- Synced from XS82ECU1072
+- *** Upstream changelog ***
+- * Thu Jul 4 2024 Lin Liu <Lin.Liu01@cloud.com> - 1.9.15-4
+- - Drop python plugin as not required
+- * Wed Mar 06 2024 Ross Lagerwall <ross.lagerwall@citrix.com> - 1.9.15-3
+- - CA-389574: Depend on vi
+
 * Tue May 21 2024 Gael Duperrey <gduperrey@vates.tech> - 1.9.15-2.1
 - Synced from XS82ECU1063
 - Removed XS-specific test of dist macro to determine buildrequires
