@@ -1,6 +1,6 @@
-%global package_speccommit fd5156646ab541831d5e7d4b5681b7cab0980ea1
+%global package_speccommit 2b458dc2e45917c384ec47aaab175d0fd6f064b3
 %global usver 1.9.15
-%global xsver 4
+%global xsver 5
 %global xsrel %{xsver}%{?xscount}%{?xshash}
 
 # comment out if no extra version
@@ -29,7 +29,6 @@ BuildRequires: flex
 BuildRequires: bison
 BuildRequires: libtool
 BuildRequires: audit-libs-devel libcap-devel
-BuildRequires: libselinux-devel
 BuildRequires: gettext
 BuildRequires: zlib-devel
 
@@ -96,7 +95,7 @@ export CFLAGS="$RPM_OPT_FLAGS $F_PIE" LDFLAGS="-pie -Wl,-z,relro -Wl,-z,now"
         --with-ignore-dot \
         --with-tty-tickets \
         --with-ldap \
-        --with-selinux \
+        --without-selinux \
         --with-sendmail=/usr/sbin/sendmail \
         --with-passprompt="[sudo] password for %p: " \
         --disable-python \
@@ -189,7 +188,6 @@ EOF
 %attr(0755,root,root) %{_sbindir}/visudo
 %{_bindir}/cvtsudoers
 %dir %{_libexecdir}/sudo
-%attr(0755,root,root) %{_libexecdir}/sudo/sesh
 %attr(0644,root,root) %{_libexecdir}/sudo/sudo_noexec.so
 %attr(0644,root,root) %{_libexecdir}/sudo/sudoers.so
 %attr(0644,root,root) %{_libexecdir}/sudo/audit_json.so
@@ -229,6 +227,12 @@ EOF
 
 
 %changelog
+* Thu Aug 14 2025 Gaëtan Lehmann <gaetan.lehmann@vates.tech> - 1.9.15-5.1
+- Sync with 1.9.15-5
+- *** Upstream changelog ***
+  * Tue Nov 12 2024 Lin Liu <Lin.Liu01@cloud.com> - 1.9.15-5
+  - CP-50489: Remove selinux
+
 * Mon Aug 12 2024 Samuel Verschelde <stormi-xcp@ylix.fr> - 1.9.15-4.1
 - Sync with 1.9.15-4
 - *** Upstream changelog ***
