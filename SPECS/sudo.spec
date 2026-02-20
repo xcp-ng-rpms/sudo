@@ -13,7 +13,7 @@ Version: 1.9.15
 # use "-p -e % {?extraver}" when beta
 # use "-e % {?extraver}"" when patch version
 # use nothing special when normal version
-Release: %{?xsrel}.1%{?dist}
+Release: %{?xsrel}.1~XCPNG2710.3%{?dist}
 License: ISC
 URL: https://www.sudo.ws
 Source0: sudo-1.9.15p5.tar.gz
