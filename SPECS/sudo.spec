@@ -1,5 +1,5 @@
 ## START: Set by rpmautospec
-## (rpmautospec version 0.6.1)
+## (rpmautospec version 0.8.1)
 ## RPMAUTOSPEC: autorelease, autochangelog
 %define autorelease(e:s:pb:n) %{?-p:0.}%{lua:
     release_number = 2;
@@ -9,20 +9,21 @@
 ## END: Set by rpmautospec
 
 # comment out if no extra version
-%global extraver p5
+%global extraver p2
 
 Summary: Allows restricted root access for specified users
 Name: sudo
-Version: 1.9.15
-# remove -b 3 after rebase !!!
+Version: 1.9.17
+# Remove "-b 3" after a rebase !!!
 # use "-p -e % {?extraver}" when beta
-# use "-e % {?extraver}"" when patch version
+# use "-e % {?extraver}" when patch version
 # use nothing special when normal version
 Release: %autorelease -e %{?extraver}
 License: ISC
 URL: https://www.sudo.ws
 Source0: %{url}/dist/%{name}-%{version}%{?extraver}.tar.gz
 Source1: sudoers
+Source2: sudo-ldap.conf
 Requires: pam
 Recommends: system-default-editor
 Recommends: %{name}-python-plugin%{?_isa} = %{version}-%{release}
@@ -39,6 +40,11 @@ BuildRequires: libselinux-devel
 BuildRequires: systemd-rpm-macros
 BuildRequires: gettext
 BuildRequires: zlib-devel
+
+
+Patch1: 0001-coverity.patch
+Patch2: 0002-sudo-conf.patch
+Patch3: 0003-rebuild_env-Avoid-setting-SHELL-twice-for-sudo-i.patch
 
 %description
 Sudo (superuser do) allows a system administrator to give certain
@@ -58,17 +64,6 @@ Requires:       %{name} = %{version}-%{release}
 %description    devel
 The %{name}-devel package contains header files developing sudo
 plugins that use %{name}.
-
-
-%package        logsrvd
-Summary:        High-performance log server for %{name}
-Requires:       %{name} = %{version}-%{release}
-BuildRequires:  openssl-devel
-
-
-%description    logsrvd
-%{name}-logsrvd is a high-performance log server that accepts event and I/O logs from sudo.
-It can be used to implement centralized logging of sudo logs.
 
 %package        python-plugin
 Summary:        Python plugin for %{name}
@@ -94,24 +89,28 @@ F_PIE=-fpie
 
 export CFLAGS="$RPM_OPT_FLAGS $F_PIE" LDFLAGS="-pie -Wl,-z,relro -Wl,-z,now"
 
+
 %configure \
         --prefix=%{_prefix} \
         --sbindir=%{_sbindir} \
         --libdir=%{_libdir} \
         --docdir=%{_pkgdocdir} \
         --enable-tmpfiles.d=%{_tmpfilesdir} \
-        --enable-openssl \
+        --disable-openssl \
         --disable-root-mailer \
-        --disable-intercept \
+        --enable-intercept \
+        --disable-log-server \
+        --disable-log-client \
         --with-logging=syslog \
         --with-logfac=authpriv \
         --with-pam \
         --with-pam-login \
-        --with-editor=%{_bindir}/nano:%{_bindir}/vim:%{_bindir}/vi \
+        --with-editor=/usr/bin/vi \
         --with-env-editor \
         --with-ignore-dot \
         --with-tty-tickets \
         --with-ldap \
+        --with-ldap-conf-file="%{_sysconfdir}/sudo-ldap.conf" \
         --with-selinux \
         --with-sendmail=/usr/sbin/sendmail \
         --with-passprompt="[sudo] password for %p: " \
@@ -119,8 +118,7 @@ export CFLAGS="$RPM_OPT_FLAGS $F_PIE" LDFLAGS="-pie -Wl,-z,relro -Wl,-z,now"
         --enable-zlib=system \
         --with-linux-audit \
         --with-sssd
-#       --without-kerb5 \
-#       --without-kerb4
+
 make
 
 %check
@@ -128,6 +126,10 @@ make check
 
 %install
 rm -rf $RPM_BUILD_ROOT
+
+# Update README.LDAP (#736653)
+sed -i 's|/etc/ldap\.conf|%{_sysconfdir}/sudo-ldap.conf|g' README.LDAP.md
+
 make install DESTDIR="$RPM_BUILD_ROOT" install_uid=`id -u` install_gid=`id -g` sudoers_uid=`id -u` sudoers_gid=`id -g`
 
 chmod 755 $RPM_BUILD_ROOT%{_bindir}/* $RPM_BUILD_ROOT%{_sbindir}/*
@@ -135,6 +137,17 @@ install -p -d -m 700 $RPM_BUILD_ROOT/var/db/sudo
 install -p -d -m 700 $RPM_BUILD_ROOT/var/db/sudo/lectured
 install -p -d -m 750 $RPM_BUILD_ROOT/etc/sudoers.d
 install -p -c -m 0440 %{SOURCE1} $RPM_BUILD_ROOT/etc/sudoers
+install -p -c -m 0640 %{SOURCE2} $RPM_BUILD_ROOT/%{_sysconfdir}/sudo-ldap.conf
+
+# create sudo-ldap.conf man
+echo ".so man5/sudoers.ldap.5" > sudo-ldap.conf.5
+gzip sudo-ldap.conf.5
+install -p -c -m 0644 sudo-ldap.conf.5.gz $RPM_BUILD_ROOT/%{_mandir}/man5/sudo-ldap.conf.5.gz
+rm -f sudo-ldap.conf.5.gz
+
+# we are not building sendlog so we don't need this
+rm -rf $RPM_BUILD_ROOT/%{_mandir}/man8/sudo_sendlog.8
+
 #add sudo to protected packages
 install -p -d -m 755 $RPM_BUILD_ROOT/etc/dnf/protected.d/
 touch sudo.conf
@@ -143,9 +156,6 @@ install -p -c -m 0644 sudo.conf $RPM_BUILD_ROOT/etc/dnf/protected.d/
 rm -f sudo.conf
 
 chmod +x $RPM_BUILD_ROOT%{_libexecdir}/sudo/*.so # for stripping, reset in %%files
-
-# Don't package LICENSE as a doc
-rm -rf $RPM_BUILD_ROOT%{_pkgdocdir}/LICENSE
 
 # Remove examples; Examples can be found in man pages too.
 rm -rf $RPM_BUILD_ROOT%{_datadir}/examples/sudo
@@ -163,13 +173,12 @@ cat sudo.lang sudoers.lang > sudo_all.lang
 rm sudo.lang sudoers.lang
 
 mkdir -p $RPM_BUILD_ROOT/etc/pam.d
+
 cat > $RPM_BUILD_ROOT/etc/pam.d/sudo << EOF
 #%%PAM-1.0
 auth       include      system-auth
 account    include      system-auth
 password   include      system-auth
-session    optional     pam_keyinit.so revoke
-session    required     pam_limits.so
 session    include      system-auth
 EOF
 
@@ -182,61 +191,55 @@ session    optional     pam_keyinit.so force revoke
 session    include      sudo
 EOF
 
-
 %files -f sudo_all.lang
 %defattr(-,root,root)
 %attr(0440,root,root) %config(noreplace) /etc/sudoers
+%attr(0640,root,root) %config(noreplace) /etc/sudo.conf
+%attr(0640,root,root) %config(noreplace) %{_sysconfdir}/sudo-ldap.conf
 %attr(0750,root,root) %dir /etc/sudoers.d/
 %config(noreplace) /etc/pam.d/sudo
 %config(noreplace) /etc/pam.d/sudo-i
 %attr(0644,root,root) %{_tmpfilesdir}/sudo.conf
 %attr(0644,root,root) %config(noreplace) /etc/dnf/protected.d/sudo.conf
-%attr(0640,root,root) %config(noreplace) /etc/sudo.conf
 %dir /var/db/sudo
 %dir /var/db/sudo/lectured
 %attr(4111,root,root) %{_bindir}/sudo
 %{_bindir}/sudoedit
+%{_bindir}/cvtsudoers
 %attr(0111,root,root) %{_bindir}/sudoreplay
 %attr(0755,root,root) %{_sbindir}/visudo
-%{_bindir}/cvtsudoers
 %dir %{_libexecdir}/sudo
 %attr(0755,root,root) %{_libexecdir}/sudo/sesh
 %attr(0644,root,root) %{_libexecdir}/sudo/sudo_noexec.so
-%attr(0644,root,root) %{_libexecdir}/sudo/sudoers.so
 %attr(0644,root,root) %{_libexecdir}/sudo/audit_json.so
+%attr(0644,root,root) %{_libexecdir}/sudo/sudoers.so
 %attr(0644,root,root) %{_libexecdir}/sudo/group_file.so
 %attr(0644,root,root) %{_libexecdir}/sudo/system_group.so
+%attr(0644,root,root) %{_libexecdir}/sudo/sudo_intercept.so
 %attr(0644,root,root) %{_libexecdir}/sudo/libsudo_util.so.?.?.?
 %{_libexecdir}/sudo/libsudo_util.so.?
 %{_libexecdir}/sudo/libsudo_util.so
 %{_mandir}/man5/sudoers.5*
 %{_mandir}/man5/sudoers.ldap.5*
+%{_mandir}/man5/sudo-ldap.conf.5*
 %{_mandir}/man5/sudo.conf.5*
 %{_mandir}/man8/sudo.8*
 %{_mandir}/man8/sudoedit.8*
 %{_mandir}/man8/sudoreplay.8*
 %{_mandir}/man8/visudo.8*
-%{_mandir}/man1/cvtsudoers.1.gz
-%{_mandir}/man5/sudoers_timestamp.5.gz
+%{_mandir}/man1/cvtsudoers.1*
+%{_mandir}/man5/sudoers_timestamp.5*
 %dir %{_pkgdocdir}/
 %{_pkgdocdir}/*
 %{!?_licensedir:%global license %%doc}
 %license LICENSE.md
 %exclude %{_pkgdocdir}/ChangeLog
 
+
 %files devel
 %doc plugins/sample/sample_plugin.c
 %{_includedir}/sudo_plugin.h
 %{_mandir}/man5/sudo_plugin.5*
-
-%files logsrvd
-%attr(0640,root,root) %config(noreplace) /etc/sudo_logsrvd.conf
-%attr(0755,root,root) %{_sbindir}/sudo_logsrvd
-%attr(0755,root,root) %{_sbindir}/sudo_sendlog
-%{_mandir}/man5/sudo_logsrv.proto.5.gz
-%{_mandir}/man5/sudo_logsrvd.conf.5.gz
-%{_mandir}/man8/sudo_logsrvd.8.gz
-%{_mandir}/man8/sudo_sendlog.8.gz
 
 %files python-plugin
 %{_mandir}/man5/sudo_plugin_python.5.gz
@@ -244,6 +247,49 @@ EOF
 
 %changelog
 ## START: Generated by rpmautospec
+* Fri Nov 14 2025 Alejandro López <allopez@redhat.com> - 1.9.17-2.p2
+- Resolves: RHEL-59136 - sudo passes SHELL environment variable twice to
+  the shell being executed [rhel-10]
+- Resolves: RHEL-128212 - [RFE] request to backport support for regex in
+  sudo [rhel-10]
+- Resolves: RHEL-112100 - Rebase of sudo to 1.9.17p2 [rhel-10]
+
+* Fri Oct 24 2025 Alejandro López <allopez@redhat.com> - 1.9.17-1.p2
+- Rebase sudo to 1.9.17p2
+- Resolves: RHEL-122752
+
+* Tue Jul 08 2025 Alejandro López <allopez@redhat.com> - 1.9.15-9.p5
+- RHEL 10.1 ERRATUM
+- CVE-2025-32462 sudo: LPE via host option Resolves: RHEL-100009
+- CVE-2025-32463 sudo: LPE via chroot option Resolves: RHEL-100022
+
+* Tue Oct 29 2024 Troy Dawson <tdawson@redhat.com> - 1.9.15-8.p5
+- Bump release for October 2024 mass rebuild:
+
+* Wed Aug 21 2024 Radovan Sroka <rsroka@redhat.com> - 1.9.15-7.p5
+- RHEL 10.0 ERRATUM
+- sudo-1.9.15-2.p5.el10: RHEL SAST Automation: address 4 High impact true
+  positive(s) Resolves: RHEL-44436
+- sudo subpackage sudo-logsrvd should not be built Resolves: RHEL-52864
+
+* Mon Aug 19 2024 Radovan Sroka <rsroka@redhat.com> - 1.9.15-6.p5
+- RHEL 10.0 ERRATUM
+- sudo-1.9.15-2.p5.el10: RHEL SAST Automation: address 4 High impact true
+  positive(s) Resolves: RHEL-44436
+- sudo subpackage sudo-logsrvd should not be built Resolves: RHEL-52864
+
+* Mon Aug 19 2024 Radovan Sroka <rsroka@redhat.com> - 1.9.15-5.p5
+- RHEL 10.0 ERRATUM
+- sudo-1.9.15-2.p5.el10: RHEL SAST Automation: address 4 High impact true
+  positive(s) Resolves: RHEL-44436
+- sudo subpackage sudo-logsrvd should not be built Resolves: RHEL-52864
+
+* Mon Jun 24 2024 Troy Dawson <tdawson@redhat.com> - 1.9.15-4.p5
+- Bump release for June 2024 mass rebuild
+
+* Tue May 28 2024 koncpa <pkoncity@redhat.com> - 1.9.15-3.p5
+- Enable RHEL gating for sudo
+
 * Thu Feb 08 2024 Yaakov Selkowitz <yselkowi@redhat.com> - 1.9.15-2.p5
 - Avoid sendmail build dependency
 
