@@ -21,7 +21,7 @@ Version: 1.9.17
 # use "-p -e % {?extraver}" when beta
 # use "-e % {?extraver}" when patch version
 # use nothing special when normal version
-Release: %autorelease -e %{?extraver}
+Release: %autorelease -e %{?extraver}~xcpng2718.1
 License: ISC
 URL: https://www.sudo.ws
 Source0: %{url}/dist/%{name}-%{version}%{?extraver}.tar.gz
