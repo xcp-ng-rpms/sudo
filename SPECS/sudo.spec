@@ -18,21 +18,32 @@ Version: 1.9.17
 # use "-p -e % {?extraver}" when beta
 # use "-e % {?extraver}" when patch version
 # use nothing special when normal version
-Release: %autorelease -e %{?extraver}
+Release: %autorelease -e %{?extraver}.1
 License: ISC
 URL: https://www.sudo.ws
 Source0: %{url}/dist/%{name}-%{version}%{?extraver}.tar.gz
 Source1: sudoers
 Source2: sudo-ldap.conf
 Requires: pam
+# XCP-ng BEGIN Restore Requires on vi (added by XenServer), visudo depends exclusively on it
+Requires: /usr/bin/vi
+# XCP-ng END
+# XCP-ng BEGIN Obsolete logsrvd, XCP-ng never supported it
+Obsoletes: sudo-logsrvd <= 1.9.15-5.1
+# XCP-ng END
 
 BuildRequires: make
 BuildRequires: pam-devel
 BuildRequires: openldap-devel
 BuildRequires: libtool
 BuildRequires: audit-libs-devel libcap-devel
-BuildRequires: libselinux-devel
-BuildRequires: systemd-rpm-macros
+# XCP-ng BEGIN XCP-ng does not use SELinux, so this is not needed
+#BuildRequires: libselinux-devel
+# XCP-ng END
+# XCP-ng BEGIN XCP-ng does not have systemd-rpm-macros
+# It is only useful for %%{_tmpfilesdir}, which systemd already provides (/usr/lib/tmpfiles.d)
+#BuildRequires: systemd-rpm-macros
+# XCP-ng END
 BuildRequires: zlib-devel
 
 
@@ -62,14 +73,20 @@ Requires:       %{name} = %{version}-%{release}
 The %{name}-devel package contains header files developing sudo
 plugins that use %{name}.
 
-%package        python-plugin
-Summary:        Python plugin for %{name}
-Requires:       %{name} = %{version}-%{release}
-BuildRequires:  python3-devel
+%if 0
+# XCP-ng: This extra if is not avoid later comments to be propagated to previous description section
 
-
-%description    python-plugin
-%{name}-python-plugin allows using sudo plugins written in Python.
+# XCP-ng BEGIN Do not package python-plugin: it was not provided before and can bring security issues
+#%%package        python-plugin
+#Summary:        Python plugin for %%{name}
+#Requires:       %%{name} = %%{version}-%%{release}
+#BuildRequires:  python3-devel
+#
+#
+#%%description    python-plugin
+#%%{name}-python-plugin allows using sudo plugins written in Python.
+# XCP-ng END
+%endif
 
 %prep
 %autosetup -p1 -n %{name}-%{version}%{?extraver}
@@ -87,6 +104,11 @@ F_PIE=-fpie
 export CFLAGS="$RPM_OPT_FLAGS $F_PIE" LDFLAGS="-pie -Wl,-z,relro -Wl,-z,now"
 
 
+# XCP-ng BEGIN Disable SELinux (not used) and python (sudo-python-plugin not provided)
+# Comments would break the line continuation below, so the upstream options
+#        --with-selinux \
+#        --enable-python \
+# are replaced there by --without-selinux and --disable-python.
 %configure \
         --prefix=%{_prefix} \
         --sbindir=%{_sbindir} \
@@ -108,13 +130,14 @@ export CFLAGS="$RPM_OPT_FLAGS $F_PIE" LDFLAGS="-pie -Wl,-z,relro -Wl,-z,now"
         --with-tty-tickets \
         --with-ldap \
         --with-ldap-conf-file="%{_sysconfdir}/sudo-ldap.conf" \
-        --with-selinux \
+        --without-selinux \
         --with-sendmail=/usr/sbin/sendmail \
         --with-passprompt="[sudo] password for %p: " \
-        --enable-python \
+        --disable-python \
         --enable-zlib=system \
         --with-linux-audit \
         --with-sssd
+# XCP-ng END
 
 make
 
@@ -206,7 +229,9 @@ EOF
 %attr(0111,root,root) %{_bindir}/sudoreplay
 %attr(0755,root,root) %{_sbindir}/visudo
 %dir %{_libexecdir}/sudo
-%attr(0755,root,root) %{_libexecdir}/sudo/sesh
+# XCP-ng BEGIN sesh is only built when SELinux support is enabled, which we disable
+#%%attr(0755,root,root) %%{_libexecdir}/sudo/sesh
+# XCP-ng END
 %attr(0644,root,root) %{_libexecdir}/sudo/sudo_noexec.so
 %attr(0644,root,root) %{_libexecdir}/sudo/audit_json.so
 %attr(0644,root,root) %{_libexecdir}/sudo/sudoers.so
@@ -238,11 +263,50 @@ EOF
 %{_includedir}/sudo_plugin.h
 %{_mandir}/man5/sudo_plugin.5*
 
-%files python-plugin
-%{_mandir}/man5/sudo_plugin_python.5.gz
-%attr(0644,root,root) %{_libexecdir}/sudo/python_plugin.so
+# XCP-ng BEGIN Do not package python-plugin: it was not provided before and can bring security issues
+#%%files python-plugin
+#%%{_mandir}/man5/sudo_plugin_python.5.gz
+#%%attr(0644,root,root) %%{_libexecdir}/sudo/python_plugin.so
+# XCP-ng END
 
 %changelog
+* Tue Sep 15 2026 Lucas RAVAGNIER <lucas.ravagnier@vates.tech> - 1.9.17-10.p2.1 - WIP
+- Rebase to sudo 1.9.17p2 el10
+- Drop XCP-ng fix for CVE-2025-32462 and CVE-2025-32463 (fixed by redhat)
+- Restore Requires: /usr/bin/vi which is needed for "visudo".
+- We do not use SELinux, so we can disable it, just as XenServer did.
+- Disable the python-plugin, as it was not previously provided and
+  is often linked to security vulnerabilities. Since Python is no
+  used elsewhere, we remove it.
+- Do not package sesh: it is only built when SELinux support is
+  enabled, which we disable, so listing it in %files broke the build.
+- Obsolete logsrvd as it was never supported by XCP-ng.
+  *** XCP-ng changelog ***
+	* Thu Aug 14 2025 Gaëtan Lehmann <gaetan.lehmann@vates.tech> - 1.9.15-5.1
+	- Sync with 1.9.15-5
+	- *** Upstream changelog ***
+	   - * Tue Nov 12 2024 Lin Liu <Lin.Liu01@cloud.com> - 1.9.15-5
+	   - CP-50489: Remove selinux
+
+	* Mon Aug 12 2024 Samuel Verschelde <stormi-xcp@ylix.fr> - 1.9.15-4.1
+	- Sync with 1.9.15-4
+	- *** Upstream changelog ***
+	   - * Thu Jul 4 2024 Lin Liu <Lin.Liu01@cloud.com> - 1.9.15-4
+	   - Drop python plugin as not required
+
+	* Thu May 23 2024 Gael Duperrey <gduperrey@vates.tech> - 1.9.15-3.1
+	- Synced from sudo-1.9.15-3.xs8.src.rpm
+	- Removed XS-specific test of dist macro to determine buildrequires
+
+	* Wed Mar 06 2024 Ross Lagerwall <ross.lagerwall@citrix.com> - 1.9.15-3
+	- CA-389574: Depend on vi
+
+	* Wed Feb 28 2024 Frediano Ziglio <frediano.ziglio@cloud.com> - 1.9.15-2
+	- Bump release
+
+	* Tue Feb 20 2024 Frediano Ziglio <frediano.ziglio@cloud.com> - 1.9.15-1
+	- First imported release
+
 ## START: Generated by rpmautospec
 * Tue Aug 18 2026 Alejandro López <allopez@redhat.com> - 1.9.17-10.p2
 - Resolves: RHEL-215573 - Use canonicalized path if user path contains ".."
