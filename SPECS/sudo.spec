@@ -18,7 +18,7 @@ Version: 1.9.17
 # use "-p -e % {?extraver}" when beta
 # use "-e % {?extraver}" when patch version
 # use nothing special when normal version
-Release: %autorelease -e %{?extraver}.1
+Release: %autorelease -e %{?extraver}.2
 License: ISC
 URL: https://www.sudo.ws
 Source0: %{url}/dist/%{name}-%{version}%{?extraver}.tar.gz
@@ -53,6 +53,10 @@ Patch3: 0003-rebuild_env-Avoid-setting-SHELL-twice-for-sudo-i.patch
 Patch4: 0004-cve-2026-35535.patch
 Patch5: 0005-exec_pty-Treat-a-socketpair-for-stdin-stdout-same-as.patch
 Patch6: 0006-RHEL-215573-dot-dot.patch
+
+# XCP-ng patches:
+Patch1000: CVE-2026-96512-sudo-ignore-user-specified-TZ-environment-variable.patch
+Patch1001: CVE-2026-96512-Remove-TZ-from-sudo-s-working-environment-without-mo.patch
 
 %description
 Sudo (superuser do) allows a system administrator to give certain
@@ -270,6 +274,9 @@ EOF
 # XCP-ng END
 
 %changelog
+* Fri Sep 25 2026 Lucas RAVAGNIER <lucas.ravagnier@vates.tech> - 1.9.17-10.p2.2
+- Fix CVE-2026-96512
+
 * Tue Sep 15 2026 Lucas RAVAGNIER <lucas.ravagnier@vates.tech> - 1.9.17-10.p2.1
 - Rebase to sudo 1.9.17p2 el10
 - Drop XCP-ng fix for CVE-2025-32462 and CVE-2025-32463 (fixed by redhat)
