@@ -1,0 +1,44 @@
+From bcbaca6f69c68a9c249fed96514889a9cc886048 Mon Sep 17 00:00:00 2001
+From: "Todd C. Miller" <Todd.Miller@sudo.ws>
+Date: Tue, 13 Jan 2026 14:18:50 -0700
+Subject: [PATCH] exec_pty: Treat a socketpair for stdin/stdout same as a pipe
+ for ksh
+
+Sudo will run a command that is part of a pipeline in the background.
+However, ksh appears to use a socketpair instead of a pipe for this
+which broke sudo's heuristic.  With this change, a command like
+    $ sudo cat /etc/services | head -3
+will avoid setting the terminal to raw mode in ksh, which matches
+the behavior of other shells.
+
+
+Backported by Alejandro López <allopez@redhat.com> assisted by Claude Sonnet 4.5.
+---
+ src/exec_pty.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/src/exec_pty.c b/src/exec_pty.c
+index 7857cf89d..df1bffbd9 100644
+--- a/src/exec_pty.c
++++ b/src/exec_pty.c
+@@ -1220,7 +1220,7 @@ exec_pty(struct command_details *details,
+ 	    /* Not logging stdin, do not interpose. */
+ 	    sudo_debug_printf(SUDO_DEBUG_INFO,
+ 		"stdin not user's tty, not logging");
+-	    if (S_ISFIFO(sb.st_mode))
++	    if (S_ISFIFO(sb.st_mode) || S_ISSOCK(sb.st_mode))
+ 		SET(details->flags, CD_EXEC_BG);
+ 	    io_fds[SFD_STDIN] = dup(STDIN_FILENO);
+ 	    if (io_fds[SFD_STDIN] == -1)
+@@ -1267,7 +1267,7 @@ exec_pty(struct command_details *details,
+ 	    /* Not logging stdout, do not interpose. */
+ 	    sudo_debug_printf(SUDO_DEBUG_INFO,
+ 		"stdout not user's tty, not logging");
+-	    if (S_ISFIFO(sb.st_mode)) {
++	    if (S_ISFIFO(sb.st_mode) || S_ISSOCK(sb.st_mode)) {
+ 		SET(details->flags, CD_EXEC_BG);
+ 		term_raw_flags = SUDO_TERM_OFLAG;
+ 	    }
+--
+2.54.0
+
